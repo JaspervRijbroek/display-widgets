@@ -23,59 +23,59 @@ class DWPlugin{
 	var $checked = array();
 	var $id_base = '';
 	var $number = '';
-    
+
 	// pages on site
 	var $pages = array();
-    
+
 	// custom post types
 	var $cposts = array();
-    
+
 	// taxonomies
 	var $taxes = array();
-    
+
 	// categories
 	var $cats = array();
-    
+
 	// WPML languages
 	var $langs = array();
-    
+
 	function __construct(){
 		add_filter( 'widget_display_callback', array( &$this, 'show_widget' ) );
-        
+
 		// change the hook that triggers widget check
 		$hook = apply_filters( 'dw_callback_trigger', 'wp_loaded' );
-        
+
 		add_action( $hook, array( &$this, 'trigger_widget_checks' ) );
 		add_action( 'in_widget_form', array( &$this, 'hidden_widget_options'), 10, 3 );
 		add_filter( 'widget_update_callback', array( &$this, 'update_widget_options' ), 10, 3 );
 		add_action( 'wp_ajax_dw_show_widget', array( &$this, 'show_widget_options' ) );
 		add_action( 'admin_footer', array( &$this, 'load_js' ) );
-        
+
 		// when a page is saved
 		add_action( 'save_post_page', array( &$this, 'delete_transient' ) );
-        
+
 		// when a new category/taxonomy is created
 		add_action( 'created_term', array( &$this, 'delete_transient' ) );
-        
+
 		// when a custom post type is added
 		add_action( 'update_option_rewrite_rules', array( &$this, 'delete_transient' ) );
-        
+
 		// reset transient after activating the plugin
 		register_activation_hook( dirname(__FILE__) . '/display-widgets.php', array( &$this, 'delete_transient' ) );
-        
+
 		add_action( 'plugins_loaded', array( &$this, 'load_lang' ) );
 
 		// get custom Page Walker
 		$this->page_list = new DW_Walker_Page_List();
 	}
-    
+
 	function trigger_widget_checks() {
 		add_filter( 'sidebars_widgets', array( &$this, 'sidebars_widgets' ) );
 	}
 
 	function show_widget( $instance ) {
 		$instance['dw_logged'] = self::show_logged( $instance );
-        
+
 		// check logged in first
 		if ( in_array( $instance['dw_logged'], array( 'in', 'out' ) ) ) {
 			$user_ID = is_user_logged_in();
@@ -83,7 +83,7 @@ class DWPlugin{
 				return false;
 			}
 		}
-        
+
 		$post_id = get_queried_object_id();
 		$post_id = self::get_lang_id( $post_id, 'page' );
 
@@ -92,7 +92,7 @@ class DWPlugin{
 			if ( ! $show && $post_id ) {
 				$show = isset( $instance[ 'page-' . $post_id ] ) ? $instance[ 'page-' . $post_id ] : false;
 			}
-            
+
 			// check if blog page is front page too
 			if ( ! $show && is_front_page() && isset( $instance['page-front'] ) ) {
 				$show = $instance['page-front'];
@@ -140,7 +140,7 @@ class DWPlugin{
 					unset( $c_id, $cat );
 				}
 			}
-            
+
 		} else if ( is_404() ) {
 			$show = isset( $instance['page-404'] ) ? $instance['page-404'] : false;
 		} else if ( is_search() ) {
@@ -161,7 +161,7 @@ class DWPlugin{
 		}
 
 		$show = apply_filters( 'dw_instance_visibility', $show, $instance );
-	
+
 		if ( ! $show && defined( 'ICL_LANGUAGE_CODE' ) ) {
 			// check for WPML widgets
 			$show = isset( $instance[ 'lang-' . ICL_LANGUAGE_CODE ] ) ? $instance[ 'lang-' . ICL_LANGUAGE_CODE ] : false;
@@ -172,14 +172,14 @@ class DWPlugin{
 		}
 
 		$instance['dw_include'] = isset( $instance['dw_include'] ) ? $instance['dw_include'] : 0;
-        
+
 		if ( ( $instance['dw_include'] && false == $show ) || ( 0 == $instance['dw_include'] && $show ) ) {
 			return false;
 		} else if ( defined('ICL_LANGUAGE_CODE') && $instance['dw_include'] && $show && ! isset( $instance[ 'lang-' . ICL_LANGUAGE_CODE ] ) ) {
 			//if the widget has to be visible here, but the current language has not been checked, return false
-			return false;
+			// return false;
 		}
-        
+
 		return $instance;
 	}
 
@@ -245,16 +245,16 @@ class DWPlugin{
 
 		return $sidebars;
 	}
-    
+
 	function hidden_widget_options( $widget, $return, $instance ) {
 		if ( $_POST && isset( $_POST['id_base'] ) && $_POST['id_base'] == $widget->id_base ) {
 			// widget was just saved so it's open
 			self::show_hide_widget_options( $widget, $return, $instance );
 			return;
 		}
-        
+
 		self::register_globals();
-        
+
 		$instance['dw_include'] = isset( $instance['dw_include'] ) ? $instance['dw_include'] : 0;
 		$instance['dw_logged'] = self::show_logged( $instance );
 		$instance['other_ids'] = isset( $instance['other_ids'] ) ? $instance['other_ids'] : '';
@@ -262,20 +262,20 @@ class DWPlugin{
 <div class="dw_opts">
 	<input type="hidden" name="<?php echo esc_attr( $widget->get_field_name('dw_include') ); ?>" id="<?php echo esc_attr( $widget->get_field_id('dw_include') ); ?>" value="<?php echo esc_attr( $instance['dw_include'] ) ?>" />
 	<input type="hidden" id="<?php echo esc_attr( $widget->get_field_id('dw_logged') ); ?>" name="<?php echo esc_attr( $widget->get_field_name('dw_logged') ); ?>" value="<?php echo esc_attr( $instance['dw_logged'] ) ?>" />
-    
+
     <?php
 	foreach ( $instance as $k => $v ) {
 		if ( ! $v ) {
 			continue;
 		}
-            
+
 		if ( strpos( $k, 'page-' ) === 0 || strpos( $k, 'type-' ) === 0 || strpos( $k, 'cat-' ) === 0 || strpos( $k, 'tax-' ) === 0 || strpos( $k, 'lang-' ) === 0 ) {
     ?>
 	<input type="hidden" id="<?php echo esc_attr( $widget->get_field_id( $k ) ); ?>" name="<?php echo esc_attr( $widget->get_field_name( $k ) ); ?>" value="<?php echo esc_attr( $v ) ?>"  />
     <?php
     	}
     } ?>
-    
+
 	<input type="hidden" name="<?php echo esc_attr( $widget->get_field_name('other_ids') ); ?>" id="<?php echo esc_attr( $widget->get_field_id('other_ids') ); ?>" value="<?php echo esc_attr( $instance['other_ids'] ) ?>" />
 </div>
 <?php
@@ -286,7 +286,7 @@ class DWPlugin{
         $instance = json_decode( $instance, true );
 		$this->id_base = sanitize_text_field( $_POST['id_base'] );
 		$this->number = sanitize_text_field( $_POST['widget_number'] );
-        
+
         $new_instance = array();
         $prefix = 'widget-' . $this->id_base . '[' . $this->number . '][';
         foreach ( $instance as $k => $v ) {
@@ -300,13 +300,13 @@ class DWPlugin{
 
 	function show_hide_widget_options( $widget, $return, $instance ) {
 		self::register_globals();
-    
+
 		$wp_page_types = self::page_types();
-            
+
 		$instance['dw_include'] = isset( $instance['dw_include'] ) ? $instance['dw_include'] : 0;
 		$instance['dw_logged'] = self::show_logged( $instance );
 		$instance['other_ids'] = isset( $instance['other_ids'] ) ? $instance['other_ids'] : '';
-?>   
+?>
     <p>
         <label for="<?php echo esc_attr( $widget->get_field_id('dw_include') ); ?>"><?php _e( 'Show Widget for:', 'display-widgets' ) ?></label>
         <select name="<?php echo esc_attr( $widget->get_field_name('dw_logged') ); ?>" id="<?php echo esc_attr( $widget->get_field_id('dw_logged') ); ?>" class="widefat">
@@ -321,7 +321,7 @@ class DWPlugin{
             <option value="0"><?php _e( 'Hide on checked pages', 'display-widgets' ) ?></option>
             <option value="1" <?php echo selected( $instance['dw_include'], 1 ) ?>><?php _e( 'Show on checked pages', 'display-widgets' ) ?></option>
         </select>
-    </p>    
+    </p>
 
 <div style="height:150px; overflow:auto; border:1px solid #dfdfdf; padding:5px; margin-bottom:5px;">
     <h4 class="dw_toggle" style="cursor:pointer;margin-top:0;"><?php _e( 'Miscellaneous', 'display-widgets' ) ?> +/-</h4>
@@ -335,10 +335,10 @@ class DWPlugin{
     <?php
     } ?>
     </div>
-    
+
     <h4 class="dw_toggle" style="cursor:pointer;"><?php _e( 'Pages') ?> +/-</h4>
     <div class="dw_collapse">
-    <?php 
+    <?php
 	foreach ( $this->pages as $page ) {
 		$instance[ 'page-' . $page->ID ] = isset( $instance[ 'page-' . $page->ID ] ) ? $instance[ 'page-' . $page->ID ] : false;
 	}
@@ -351,7 +351,7 @@ class DWPlugin{
 	}
     ?>
     </div>
-    
+
     <?php if ( ! empty( $this->cposts ) ) { ?>
     <h4 class="dw_toggle" style="cursor:pointer;"><?php _e( 'Custom Post Types', 'display-widgets' ) ?> +/-</h4>
     <div class="dw_collapse">
@@ -365,7 +365,7 @@ class DWPlugin{
 			unset( $post_key, $custom_post );
         } ?>
     </div>
-    
+
     <h4 class="dw_toggle" style="cursor:pointer;"><?php _e( 'Custom Post Type Archives', 'display-widgets' ) ?> +/-</h4>
     <div class="dw_collapse">
 	<?php
@@ -381,7 +381,7 @@ class DWPlugin{
     <?php } ?>
     </div>
     <?php } ?>
-    
+
     <h4 class="dw_toggle" style="cursor:pointer;"><?php _e( 'Categories') ?> +/-</h4>
     <div class="dw_collapse">
 		<?php $instance['cat-all'] = isset( $instance['cat-all'] ) ? $instance['cat-all'] : false; ?>
@@ -398,7 +398,7 @@ class DWPlugin{
 		}
     ?>
     </div>
-    
+
     <?php if ( ! empty( $this->taxes ) ) { ?>
     <h4 class="dw_toggle" style="cursor:pointer;"><?php _e( 'Taxonomies', 'display-widgets' ) ?> +/-</h4>
     <div class="dw_collapse">
@@ -414,7 +414,7 @@ class DWPlugin{
     ?>
     </div>
     <?php } ?>
-    
+
     <?php if ( ! empty( $this->langs ) ) { ?>
     <h4 class="dw_toggle" style="cursor:pointer;"><?php _e( 'Languages', 'display-widgets' ) ?> +/-</h4>
     <div class="dw_collapse">
@@ -425,14 +425,14 @@ class DWPlugin{
     ?>
         <p><input class="checkbox" type="checkbox" <?php checked( $instance[ 'lang-' . $key ], true ); ?> id="<?php echo esc_attr( $widget->get_field_id('lang-'. $key) ); ?>" name="<?php echo esc_attr( $widget->get_field_name('lang-'. $key) ); ?>" />
         <label for="<?php echo esc_attr( $widget->get_field_id('lang-'. $key) ); ?>"><?php echo $lang['native_name'] ?></label></p>
-       
-    <?php 
+
+    <?php
 			unset( $lang, $key );
 		}
     ?>
     </div>
     <?php } ?>
-    
+
 	<p><label for="<?php echo esc_attr( $widget->get_field_id('other_ids') ); ?>"><?php _e( 'Comma Separated list of IDs of posts not listed above', 'display-widgets' ) ?>:</label>
 	<input type="text" value="<?php echo esc_attr( $instance['other_ids'] ) ?>" name="<?php echo esc_attr( $widget->get_field_name('other_ids') ); ?>" id="<?php echo esc_attr( $widget->get_field_id('other_ids') ); ?>" />
     </p>
@@ -442,7 +442,7 @@ class DWPlugin{
 
 	function update_widget_options( $instance, $new_instance, $old_instance ) {
 		self::register_globals();
-    
+
 		if ( ! empty( $this->pages ) ) {
 			foreach ( $this->pages as $page ) {
 				if ( isset( $new_instance[ 'page-' . $page->ID ] ) ) {
@@ -488,7 +488,7 @@ class DWPlugin{
 				} else if ( isset( $instance[ 'type-' . $post_key . '-archive' ] ) ) {
 					unset( $instance[ 'type-' . $post_key . '-archive' ] );
 				}
-                
+
 				unset( $custom_post );
 			}
 		}
@@ -518,7 +518,7 @@ class DWPlugin{
 		$instance['dw_include'] = ( isset( $new_instance['dw_include'] ) && $new_instance['dw_include'] ) ? 1 : 0;
 		$instance['dw_logged'] = ( isset( $new_instance['dw_logged'] ) && $new_instance['dw_logged'] ) ? $new_instance['dw_logged'] : '';
 		$instance['other_ids'] = ( isset( $new_instance['other_ids'] ) && $new_instance['other_ids'] ) ? $new_instance['other_ids'] : '';
-        
+
 		$page_types = self::page_types();
 		foreach ( array_keys( $page_types ) as $page ) {
 			if ( isset( $new_instance[ 'page-'. $page ] ) ) {
@@ -531,18 +531,18 @@ class DWPlugin{
 
 		return $instance;
 	}
-    
+
     function get_field_name( $field_name ) {
 		return 'widget-' . $this->id_base . '[' . $this->number . '][' . $field_name . ']';
 	}
-    
+
 	function get_field_id( $field_name ) {
 		return 'widget-' . $this->id_base . '-' . $this->number . '-' . $field_name;
 	}
-    
+
     function load_js() {
         global $pagenow;
-        
+
         if ( $pagenow != 'widgets.php' ) {
             //only load the js on the widgets page
             return;
@@ -562,9 +562,9 @@ function dw_show_opts(e){
 	if(opts.length == 0){
 	    return;
 	}
-	
+
 	inside.find('.spinner').show();
-    
+
     jQuery.ajax({
 		type:'POST',url:ajaxurl,
 		data:{
@@ -581,12 +581,12 @@ function dw_toggle(){jQuery(this).next('.dw_collapse').toggle();}
 </script>
 <?php
     }
-    
+
     function show_logged( $instance ) {
         if ( isset( $instance['dw_logged'] ) ) {
             return $instance['dw_logged'];
         }
-        
+
         if ( isset( $instance['dw_logout'] ) && $instance['dw_logout'] ) {
             $instance['dw_logged'] = 'out';
         } else if ( isset( $instance['dw_login'] ) && $instance['dw_login'] ) {
@@ -594,10 +594,10 @@ function dw_toggle(){jQuery(this).next('.dw_collapse').toggle();}
         } else {
             $instance['dw_logged'] = '';
         }
-        
+
         return $instance['dw_logged'];
     }
-    
+
     function page_types(){
         $page_types = array(
             'front'     => __( 'Front', 'display-widgets' ),
@@ -607,7 +607,7 @@ function dw_toggle(){jQuery(this).next('.dw_collapse').toggle();}
             '404'       => '404',
             'search'    => __( 'Search'),
         );
-        
+
         return apply_filters('dw_pages_types_register', $page_types);
     }
 
@@ -615,18 +615,18 @@ function dw_toggle(){jQuery(this).next('.dw_collapse').toggle();}
 		if ( ! empty( $this->checked ) ) {
 			return;
 		}
-        
+
 		$saved_details = get_transient( $this->transient_name );
 		if ( $saved_details ) {
 			foreach ( $saved_details as $k => $d ) {
 				if ( empty( $this->{$k} ) ) {
 					$this->{$k} = $d;
 				}
-                
+
 				unset( $k, $d );
 			}
 		}
-        
+
 		if ( empty( $this->pages ) ) {
 			$this->pages = get_posts( array(
 				'post_type' => 'page', 'post_status' => 'publish',
@@ -634,46 +634,46 @@ function dw_toggle(){jQuery(this).next('.dw_collapse').toggle();}
 				'fields' => array('ID', 'name'),
 			));
 		}
-        
+
 		if ( empty( $this->cats ) ) {
 			$this->cats = get_categories( array(
 				'hide_empty'    => false,
 				//'fields'        => 'id=>name', //added in 3.8
 			) );
 		}
-        
+
 		if ( empty( $this->cposts ) ) {
 			$this->cposts = get_post_types( array(
 				'public' => true,
 			), 'object');
-            
+
 			foreach ( array( 'revision', 'attachment', 'nav_menu_item' ) as $unset ) {
 				unset( $this->cposts[ $unset ] );
 			}
-            
+
 			foreach ( $this->cposts as $c => $type ) {
 				$post_taxes = get_object_taxonomies( $c );
 				foreach ( $post_taxes as $post_tax) {
 					if ( in_array( $post_tax, array( 'category', 'post_format' ) ) ) {
 						continue;
 					}
-                    
+
 					$taxonomy = get_taxonomy( $post_tax );
 					$name = $post_tax;
 
 					if ( isset( $taxonomy->labels->name ) && ! empty( $taxonomy->labels->name ) ) {
 						$name = $taxonomy->labels->name;
 					}
-                    
+
 					$this->taxes[ $post_tax ] = $name;
 				}
 			}
 		}
-        
+
 		if ( empty( $this->langs ) && function_exists('icl_get_languages') ) {
 			$this->langs = icl_get_languages('skip_missing=0&orderby=code');
 		}
-        
+
 		// save for one week
 		set_transient( $this->transient_name, array(
 			'pages'     => $this->pages,
@@ -686,7 +686,7 @@ function dw_toggle(){jQuery(this).next('.dw_collapse').toggle();}
 			$this->checked[] = true;
 		}
 	}
-    
+
 	function delete_transient() {
 		delete_transient( $this->transient_name );
 	}
@@ -700,7 +700,7 @@ function dw_toggle(){jQuery(this).next('.dw_collapse').toggle();}
 		if ( function_exists('icl_object_id') ) {
 			$id = icl_object_id( $id, $type, true );
 		}
-    
+
 		return $id;
 	}
 
@@ -727,7 +727,7 @@ class DW_Walker_Page_List extends Walker_Page {
 
 		// args: $instance, $widget
 		extract( $args, EXTR_SKIP );
-    
+
 
 		if ( '' === $page->post_title ) {
 			$page->post_title = sprintf( __( '#%d (no title)', 'display-widgets' ), $page->ID );
